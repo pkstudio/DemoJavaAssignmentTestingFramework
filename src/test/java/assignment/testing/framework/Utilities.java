@@ -93,14 +93,11 @@ public class Utilities
         var classObject = Utilities.findClass(fullyQualifiedClassName);
 
         if (classObject.isEmpty()) {
-            throw new AssertionFailedError(
-                "Class not found: %s".formatted(fullyQualifiedClassName),
-                "Class located at src/main/java/%s".formatted(fullyQualifiedClassName.replaceAll("\\.", "/")),
-                "Class not found"
-            );
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
         }
-
-        Utilities.testClass(classObject.get(), fn);
+        else {
+            Utilities.testClass(classObject.get(), fn);
+        }
     }
 
     static public void testClass(Class<?> classObject, Runnable fn) {
@@ -261,7 +258,7 @@ public class Utilities
     /** Scoped CLASS */
     static public void testMethod(String methodName, List<Class<?>> parameterTypes, Runnable fn) {
         Utilities.findMethod(CLASS.get(), methodName, parameterTypes.toArray(new Class[0])).ifPresent(
-                method -> Utilities.testMethod(method, fn)
+            method -> Utilities.testMethod(method, fn)
         );
     }
 
@@ -295,11 +292,7 @@ public class Utilities
         var classOptional = Utilities.findClass(fullyQualifiedClassName);
 
         if (classOptional.isEmpty()) {
-            throw new AssertionFailedError(
-                    "Class not found: %s".formatted(fullyQualifiedClassName),
-                    "Class located at src/main/java/%s.java".formatted(fullyQualifiedClassName.replaceAll("\\.", "/")),
-                    "Class not found"
-            );
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
         }
 
         where(Utilities.CLASS, classOptional.get()).run(() -> {
@@ -307,13 +300,7 @@ public class Utilities
             var methodOptional = Utilities.findMethod(CLASS.get(), methodName, parameters);
 
             if (methodOptional.isEmpty()) {
-                throw new AssertionFailedError(
-                    "Class-method not found: %s.%s(%s)".formatted(
-                        fullyQualifiedClassName, methodName, parameterTypes.isEmpty() ? "" : Arrays.toString(parameters)
-                    ),
-                    "Method to exist within class",
-                    "Method within class does not exist"
-                );
+                Utilities.throwClassMethodNotFound(fullyQualifiedClassName, methodName, parameters);
             }
 
             where(Utilities.METHOD, methodOptional.get()).run(fn);
@@ -357,6 +344,43 @@ public class Utilities
     /** Scoped CLASS+METHOD */
     static public boolean methodReturns(Class<?> returnType) {
         return Utilities.methodReturns(METHOD.get(), returnType);
+    }
+
+
+    static public String methodReturnType(
+            String pkg, String className,
+            String methodName, Class<?>... parameterTypes
+    ) {
+        return Utilities.methodReturnType(FQCN(pkg, className), methodName, parameterTypes);
+    }
+
+    static public String methodReturnType(
+            String fullyQualifiedClassName,
+            String methodName, Class<?>... parameterTypes
+    ) {
+        var classObject = Utilities.findClass(fullyQualifiedClassName);
+
+        if (classObject.isEmpty()) {
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
+        }
+
+        return Utilities.methodReturnType(classObject.get(), methodName, parameterTypes);
+    }
+
+    static public String methodReturnType(
+            Class<?> classObject, String methodName, Class<?>... parameterTypes
+    ) {
+        var methodObject = Utilities.findMethod(classObject, methodName, parameterTypes);
+
+        if (methodObject.isEmpty()) {
+            Utilities.throwClassMethodNotFound(classObject.getName(), methodName, parameterTypes);
+        }
+
+        return Utilities.methodReturnType(methodObject.get());
+    }
+
+    static public String methodReturnType(Method methodObject) {
+        return Utilities.getTypeName(methodObject.getGenericReturnType());
     }
 
 
@@ -502,24 +526,14 @@ public class Utilities
         var classObject = Utilities.findClass(fullyQualifiedClassName);
 
         if (classObject.isEmpty()) {
-            throw new AssertionFailedError(
-                "Class not found: %s".formatted(fullyQualifiedClassName),
-                "Class located at src/main/java/%s.java".formatted(fullyQualifiedClassName.replaceAll("\\.", "/")),
-                "Class not found"
-            );
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
         }
 
         where(Utilities.CLASS, classObject.get()).run(() -> {
             var fieldObject = Utilities.findField(CLASS.get(), fieldName);
 
             if (fieldObject.isEmpty()) {
-                throw new AssertionFailedError(
-                    "Class-field not found: %s#%s".formatted(
-                        fullyQualifiedClassName, fieldName
-                    ),
-                    "Field to exist within class",
-                    "Field within class does not exist"
-                );
+                Utilities.throwClassFieldNotFound(fullyQualifiedClassName, fieldName);
             }
 
             where(Utilities.FIELD, fieldObject.get()).run(fn);
@@ -585,17 +599,40 @@ public class Utilities
     }
 
 
-    public String fieldType(Type type) {
+    /** Scoped FÌELD */
+    static public String fieldType() {
+        return Utilities.fieldType(FIELD.get().getGenericType());
+    }
+
+    static public String fieldType(Type type) {
         if (type instanceof ParameterizedType parameterizedType) {
-            return fieldParameterizedType(parameterizedType);
+            return Utilities.fieldParameterizedType(parameterizedType);
         }
         else {
-            return stripPackageFromClassName(type.getTypeName());
+            return Utilities.stripPackageFromClassName(type.getTypeName());
         }
     }
 
 
-    public String fieldParameterizedType(ParameterizedType type) {
+    static public String fieldParameterizedType(ParameterizedType type) {
+        return Utilities.getParameterizedTypeName(type);
+    }
+
+
+
+    ///-----------------------------------------------------------------------------------------------------------------
+    ///# Section: Helper-methods
+    ///-----------------------------------------------------------------------------------------------------------------
+    static public String getTypeName(Type type) {
+        if (type instanceof ParameterizedType parameterizedType) {
+            return Utilities.getParameterizedTypeName(parameterizedType);
+        }
+        else {
+            return Utilities.stripPackageFromClassName(type.getTypeName());
+        }
+    }
+
+    static public String getParameterizedTypeName(ParameterizedType type) {
         StringBuilder output = new StringBuilder();
 
         var typeArguments = type.getActualTypeArguments();
@@ -607,13 +644,13 @@ public class Utilities
 
         for (var typeArgument : typeArguments) {
             if (typeArgument instanceof Class) {
-                types.add(stripPackageFromClassName(((Class<?>) typeArgument).getName()));
+                types.add(Utilities.stripPackageFromClassName(((Class<?>) typeArgument).getName()));
             }
             else if (typeArgument instanceof ParameterizedType parameterizedType) {
-                types.add(fieldParameterizedType(parameterizedType));
+                types.add(Utilities.getParameterizedTypeName(parameterizedType));
             }
             else {
-                types.add(stripPackageFromClassName(typeArgument.toString()));
+                types.add(Utilities.stripPackageFromClassName(typeArgument.toString()));
             }
         }
 
@@ -625,10 +662,6 @@ public class Utilities
     }
 
 
-
-    ///-----------------------------------------------------------------------------------------------------------------
-    ///# Section: Helper-methods
-    ///-----------------------------------------------------------------------------------------------------------------
     static public String stripPackageFromClassName(String fullyQualifiedClassName) {
         return List.of(fullyQualifiedClassName.split("\\.")).getLast();
     }
@@ -642,6 +675,40 @@ public class Utilities
     //## Assertions
     static public void assertStandardOutputEquals(String input) {
         assertEquals("\"%s\"".formatted(input), "\"%s\"".formatted(Utilities.getStandardOutput()));
+    }
+
+
+    static private void throwClassNotFound(String fullyQualifiedClassName) {
+        throw new AssertionFailedError(
+            "Class not found: %s".formatted(fullyQualifiedClassName),
+            "Class located at src/main/java/%s.java".formatted(fullyQualifiedClassName.replaceAll("\\.", "/")),
+            "Class not found"
+        );
+    }
+
+
+    static private void throwClassMethodNotFound(
+            String fullyQualifiedClassName,
+            String methodName, Class<?>... parameterTypes
+    ) {
+        throw new AssertionFailedError(
+            "Class-method not found: %s.%s(%s)".formatted(
+                fullyQualifiedClassName, methodName, parameterTypes.length == 0 ? "" : Arrays.toString(parameterTypes)
+            ),
+            "Method to exist within class",
+            "Method within class does not exist"
+        );
+    }
+
+
+    static private void throwClassFieldNotFound(String fullyQualifiedClassName, String fieldName) {
+        throw new AssertionFailedError(
+            "Class-field not found: %s#%s".formatted(
+                fullyQualifiedClassName, fieldName
+            ),
+            "Field to exist within class",
+            "Field within class does not exist"
+        );
     }
 
 
