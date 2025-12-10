@@ -255,6 +255,34 @@ public class Utilities
     }
 
 
+    static public void testMethod(
+            String pkg, String className,
+            String methodName, List<Class<?>> parameterTypes,
+            Runnable fn
+    ) {
+        Utilities.testMethod(FQCN(pkg, className), methodName, parameterTypes, fn);
+    }
+
+    static public void testMethod(
+            String fullyQualifiedClassName,
+            String methodName, List<Class<?>> parameterTypes,
+            Runnable fn
+    ) {
+        var classObject = findClass(fullyQualifiedClassName);
+
+        if (classObject.isEmpty()) {
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
+        }
+
+        Utilities.testMethod(classObject.get(), methodName, parameterTypes, fn);
+    }
+
+    static public void testMethod(Class<?> classObject, String methodName, List<Class<?>> parameterTypes, Runnable fn) {
+        Utilities.findMethod(classObject, methodName, parameterTypes.toArray(new Class[0])).ifPresent(
+            method -> Utilities.testMethod(method, fn)
+        );
+    }
+
     /** Scoped CLASS */
     static public void testMethod(String methodName, List<Class<?>> parameterTypes, Runnable fn) {
         Utilities.findMethod(CLASS.get(), methodName, parameterTypes.toArray(new Class[0])).ifPresent(
@@ -262,9 +290,53 @@ public class Utilities
         );
     }
 
-    /** Scoped METHOD */
     static public void testMethod(Method methodObject, Runnable fn) {
         where(Utilities.METHOD, methodObject).run(fn);
+    }
+
+
+    static public void testDeclaredMethod(
+            String pkg, String className,
+            String methodName, List<Class<?>> parameterTypes,
+            Runnable fn
+    ) {
+        Utilities.testDeclaredMethod(FQCN(pkg, className), methodName, parameterTypes, fn);
+    }
+
+    static public void testDeclaredMethod(
+            String fullyQualifiedClassName,
+            String methodName, List<Class<?>> parameterTypes,
+            Runnable fn
+    ) {
+        var classObject = findClass(fullyQualifiedClassName);
+
+        if (classObject.isEmpty()) {
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
+        }
+
+        Utilities.testDeclaredMethod(classObject.get(), methodName, parameterTypes, fn);
+    }
+
+    static public void testDeclaredMethod(
+            Class<?> classObject,
+            String methodName, List<Class<?>> parameters,
+            Runnable fn
+    ) {
+        var parameterTypes = parameters.toArray(new Class[0]);
+        var methodObject = Utilities.findMethod(classObject, methodName, parameterTypes);
+
+        if (methodObject.isEmpty()) {
+            Utilities.throwClassMethodNotFound(classObject.getName(), methodName, parameterTypes);
+        }
+
+        Utilities.testMethod(methodObject.get(), fn);
+    }
+
+    /** Scoped CLASS */
+    static public void testDeclaredMethod(String methodName, List<Class<?>> parameterTypes, Runnable fn) {
+        Utilities.findDeclaredMethod(CLASS.get(), methodName, parameterTypes.toArray(new Class[0])).ifPresent(
+            method -> Utilities.testMethod(method, fn)
+        );
     }
 
 
@@ -286,7 +358,7 @@ public class Utilities
 
     static public void testClassMethod(
             String fullyQualifiedClassName,
-            String methodName, List<Class<?>> parameterTypes,
+            String methodName, List<Class<?>> parameters,
             Runnable fn
     ) {
         var classOptional = Utilities.findClass(fullyQualifiedClassName);
@@ -296,11 +368,11 @@ public class Utilities
         }
 
         where(Utilities.CLASS, classOptional.get()).run(() -> {
-            var parameters = parameterTypes.toArray(new Class[0]);
-            var methodOptional = Utilities.findMethod(CLASS.get(), methodName, parameters);
+            var parameterTypes = parameters.toArray(new Class[0]);
+            var methodOptional = Utilities.findMethod(CLASS.get(), methodName, parameterTypes);
 
             if (methodOptional.isEmpty()) {
-                Utilities.throwClassMethodNotFound(fullyQualifiedClassName, methodName, parameters);
+                Utilities.throwClassMethodNotFound(fullyQualifiedClassName, methodName, parameterTypes);
             }
 
             where(Utilities.METHOD, methodOptional.get()).run(fn);
@@ -518,6 +590,36 @@ public class Utilities
     }
 
 
+    static public void testDeclaredField(String pkg, String className, String fieldName, Runnable fn) {
+        Utilities.testDeclaredField(FQCN(pkg, className), fieldName, fn);
+    }
+
+    static public void testDeclaredField(String fullyQualifiedClassName, String fieldName, Runnable fn) {
+        var classObject = Utilities.findClass(fullyQualifiedClassName);
+
+        if (classObject.isEmpty()) {
+            Utilities.throwClassNotFound(fullyQualifiedClassName);
+        }
+
+        Utilities.testDeclaredField(classObject.get(), fieldName, fn);
+    }
+
+    /** Scoped CLASS */
+    static public void testDeclaredField(String fieldName, Runnable fn) {
+        Utilities.testDeclaredField(CLASS.get(), fieldName, fn);
+    }
+
+    static public void testDeclaredField(Class<?> classObject, String fieldName, Runnable fn) {
+        var fieldObject = findField(classObject, fieldName);
+
+        if (fieldObject.isEmpty()) {
+            Utilities.throwClassFieldNotFound(classObject.getName(), fieldName);
+        }
+
+        Utilities.testField(fieldObject.get(), fn);
+    }
+
+
     static public void testClassField(String pkg, String className, String fieldName, Runnable fn) {
         Utilities.testClassField(FQCN(pkg, className), fieldName, fn);
     }
@@ -710,6 +812,7 @@ public class Utilities
             "Field within class does not exist"
         );
     }
+
 
 
     ///-----------------------------------------------------------------------------------------------------------------
