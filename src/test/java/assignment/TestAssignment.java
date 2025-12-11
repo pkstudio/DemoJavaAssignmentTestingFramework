@@ -17,13 +17,25 @@ import java.util.List;
 
 @DisableIfTestFails
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@DisplayName("Assignment Title")
+@DisplayName("Assignments")
 public class TestAssignment extends BaseAssignment
 {
-    @DisplayName("Assignment Task #01")
+    @DisplayName("Assignment 01 Task #01")
     @Order(1)
     @Test()
-    public void task01() {
-        // Code that tests the assignment goes here
+    public void assignment01_01() {
+        assertTrue(classExists("assignment._01.Demo"));
+    }
+
+    @DisplayName("Assignment 01 Task #02")
+    @Order(1)
+    @Test()
+    public void assignment01_02() {
+        testClassField("assignment._01.Demo", "version", () -> {
+            assertTrue(fieldIsStatic());
+            assertTrue(fieldIsPublic());
+            assertTrue(fieldIsFinal());
+            assertEquals("String", fieldType());
+        });
     }
 }
