@@ -12,7 +12,7 @@ jobs:
       - name: Set up JDK 25
         uses: actions/setup-java@v5.1.0
         with:
-          distribution: 'azul'
+          distribution: 'jetbrains'
           java-version: '25'
           cache: 'maven'
 
